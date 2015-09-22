@@ -30,3 +30,24 @@ def TOF12Coincidence(TOFEvent):
 
     return TOFHit(shs.GetTOF1SlabHitArray()) and\
         TOFHit(shs.GetTOF2SlabHitArray())
+
+
+def TimeInSpill(Spill, event_number):
+    """
+    Use the V1290 coarse time to determine the
+    time within the spill, using the time tag,
+    which counts in 800ns steps.
+
+    The arbitary subtraction of 4.880 ms seems to
+    bring the spill start to about the right time.
+    """
+
+    v1290aray = Spill.GetDAQData().GetTOF1DaqArray()[event_number].GetV1290Array()
+
+    time_tag = v1290aray[0].GetTriggerTimeTag()
+    time = time_tag*0.8E-3 - 4.880
+
+    return time
+    
+
+    

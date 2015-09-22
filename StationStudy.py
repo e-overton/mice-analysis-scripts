@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 """
 Store infomation from a single station which may be useful
 at some later point..
@@ -7,7 +5,6 @@ at some later point..
 
 import ROOT
 from TOFTools import TOF12Coincidence
-
 
 class StationStudy:
 
@@ -26,28 +23,28 @@ class StationStudy:
         n_ch = 220
 		
         # Plane histograms for the selected plane:
-        self.plane_hists = [ ROOT.TH1D("StnSty_PlaneHist_%i_%i_%i"%\
-                                       (self.tracker,self.station, p),\
-                                       "Tracker %i, Station %i, Plane %i; Channel No.; Events"%\
-                                       (self.tracker,self.station, p),\
+        self.plane_hists = [ ROOT.TH1D("StnSty_PlaneHist_%s_%i_%i"%\
+                                       (self.trkname,self.station, p),\
+                                       "Tracker %s, Station %i, Plane %i; Channel No.; Events"%\
+                                       (self.trkname,self.station, p),\
                                        n_ch, -0.5, n_ch-0.5)\
                              for p in range(3)]
 		
         # Now construct the missing plane histograms:
-        self.miss_plane_hists = [ ROOT.TH1D("StnSty_MissPlaneHist_%i_%i_%i"%\
-                                       (self.tracker,self.station, p),\
-                                       "Tracker %i, Station %i, Plane %i; Channel No.; Events"%\
-                                       (self.tracker,self.station, p),\
+        self.miss_plane_hists = [ ROOT.TH1D("StnSty_MissPlaneHist_%s_%i_%i"%\
+                                       (self.trkname,self.station, p),\
+                                       "Tracker %s, Station %i, Plane %i; Channel No.; Events"%\
+                                       (self.trkname,self.station, p),\
                                        n_ch, -0.5, n_ch-0.5)\
                              for p in range(3)]
 
         # The hit type histogram:
-        self.track_hit_type = ROOT.TH1D("StnSty_TrkHitType_%i_%i"%(self.tracker,self.station),\
-                                        "Tracker %i, Station %i; HitType; Events"%(self.tracker,self.station),\
+        self.track_hit_type = ROOT.TH1D("StnSty_TrkHitType_%s_%i"%(self.trkname,self.station),\
+                                        "Tracker %s, Station %i; HitType; Events"%(self.tracker,self.station),\
                                         4, -0.5, 3.5)
 
-        self.sp_hit_type = ROOT.TH1D("StnSty_SPHitType_%i_%i"%(self.tracker,self.station),\
-                                     "Tracker %i, Station %i; HitType; Events"%(self.tracker,self.station),\
+        self.sp_hit_type = ROOT.TH1D("StnSty_SPHitType_%s_%i"%(self.trkname,self.station),\
+                                     "Tracker %s, Station %i; HitType; Events"%(self.tracker,self.station),\
                                      4, -0.5, 3.5)
         
         # Number of analysed events:
@@ -119,7 +116,8 @@ class StationStudy:
         for cluster in sp.get_channels():
             missing_plane -= cluster.get_plane()
             kuno_sum += cluster.get_channel()
-        self.miss_plane_hists[missing_plane].Fill(318-kuno_sum)
+        self.miss_plane_hists[missing_plane].Fill(318.5-kuno_sum)
+
 
     def MakeDrawCanvas(self):
         """
@@ -133,6 +131,8 @@ class StationStudy:
         
         self.c.Divide(2,2)
 
+        self.legends = []
+
         for p in range(3):
             self.c.cd(p+1)
             self.plane_hists[p].SetFillColor(ROOT.kGray)
@@ -141,6 +141,11 @@ class StationStudy:
             self.plane_hists[p].GetYaxis().SetTitleOffset(1.4)
             self.miss_plane_hists[p].SetLineColor(ROOT.kRed)
             self.miss_plane_hists[p].Draw("SAME")
+            
+            self.legends.append(ROOT.TLegend(0.1,0.75,0.35,0.9))
+            self.legends[-1].AddEntry(self.plane_hists[p], "Triplet Hits")
+            self.legends[-1].AddEntry(self.miss_plane_hists[p], "Duplet Missed Hit")
+            self.legends[-1].Draw()
         
         self.c.cd(4)
         self.track_hit_type.SetStats(False)
@@ -150,12 +155,23 @@ class StationStudy:
         self.track_hit_type.GetYaxis().SetRangeUser(0,self.track_hit_type.GetEntries())
         self.track_hit_type.GetYaxis().SetTitleOffset(1.4)
         self.sp_hit_type.Draw("SAME")
-        
+
+        self.legends.append(ROOT.TLegend(0.1,0.75,0.35,0.9))
+        self.legends[-1].AddEntry(self.track_hit_type, "Spacepoints in Tracks")
+        self.legends[-1].AddEntry(self.sp_hit_type, "All Spacepoints")
+        self.legends[-1].Draw()
+
+
     def MakeResultsDict(self):
         """
         Summarise the output in the format of a dictionary
         """
         o = {}
+
+        # Tracker info:
+        o["tracker"] = self.tracker
+        o["station"] = self.station
+        o["trkname"] = self.trkname
 
         # Events which passed the TOF1/2 Cut.
         o["events"] = self.n_events
@@ -163,14 +179,33 @@ class StationStudy:
         # Events which had a track in the selected tracker
         o["tracks"] = self.n_tracks
 
+        o["sp_triplets"] = self.sp_hit_type.GetBinContent(4)
+        o["sp_duplets"] = self.sp_hit_type.GetBinContent(3)
+        o["sp_miss"] = self.sp_hit_type.GetBinContent(1)
         
-        # The ratio of duplets to triplets in the spacepoints
         o["sp_dupletratio"] = self.sp_hit_type.GetBinContent(3)/\
                               self.sp_hit_type.GetBinContent(4)
-        
-        # The ratio of duplets to triplets in the tracks
+
+        o["track_triplets"] = self.track_hit_type.GetBinContent(4)
+        o["track_duplets"] = self.track_hit_type.GetBinContent(3)
+        o["track_miss"] = self.track_hit_type.GetBinContent(1)
+
         o["track_dupletratio"] = self.track_hit_type.GetBinContent(3)/\
                                  self.track_hit_type.GetBinContent(4)
+
         
-        print o
+        # Compute "Efficiencies"
+        o["track_eff"] =  (o["track_triplets"] + o["track_duplets"])/\
+                          ( o["track_miss"] + o["track_duplets"] + o["track_triplets"] )
+
+        # We assume a duplet/triplet rate from the tracks, and use the
+        # number of observed spacepoint triplets to determine efficiency.
+        o["sp_eff"] = (o["sp_triplets"]*(1.+o["track_dupletratio"]))/\
+                      ( o["sp_miss"] +  o["sp_duplets"] + o["sp_triplets"])
+
+        # Estimate the duplet noise rate.
+        o["duplet_noise"] = o["sp_dupletratio"] - o["track_dupletratio"]
+        
+        
+        return o
 

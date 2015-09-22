@@ -9,22 +9,37 @@ import subprocess
 
 # basic PyROOT definitions
 import ROOT 
-import xboa.common
 
 # definitions of MAUS data structure for PyROOT
 import libMausCpp #pylint: disable = W0611
 import itertools
 
 import StationStudy
+import FrontEndLookup
+import ClusterLightYield
+import TOFTools
 
 
 def main():
+
+    print "Loading Calibration/Mapping lookups"
+    
+    # The SciFi calibration
+    maus_scifi_calibration='%s/files/calibration/scifi_calibration_20150912.txt'\
+        % os.environ.get("MAUS_ROOT_DIR")
+    
+    # The SciFi Mapping
+    maus_scifi_mapping='%s/files/cabling/scifi_mapping_2015-06-18.txt'\
+        % os.environ.get("MAUS_ROOT_DIR")
+    
+    lookup = FrontEndLookup.FrontEndLookup(maus_scifi_mapping, maus_scifi_calibration)
+    LightYield = ClusterLightYield.ClusterLightYield(lookup)
 
     print "Generating some data"
     #my_file_name = "/home/ed/MICE/testdata/maus_7333.root"
     my_file_name = "/home/ed/MICE/testdata/maus_output_new-mapping-calibration_run7333.root"
 
-    output_dir = 
+    output_dir = "07333/"
 
     print "Loading ROOT file", my_file_name
     root_file = ROOT.TFile(my_file_name, "READ") # pylint: disable = E1101
@@ -39,7 +54,7 @@ def main():
     
     print "Beginning Processing"
     for i in range(tree.GetEntries()):
-        if i > 5000:
+        if i > 500:
             break
             
         print "Spill", i
@@ -50,14 +65,30 @@ def main():
         if spill.GetDaqEventType() == "physics_event":
 
             for j, recon_event in enumerate(spill.GetReconEvents()):
+
+                spilltime =  TOFTools.TimeInSpill(spill,j)
+
+                #for cluster in recon_event.GetSciFiEvent().clusters():
+                #for track in  recon_event.GetSciFiEvent().straightprtracks():
+                #    for sp in track.get_spacepoints():
+                #        for cluster in sp.get_channels():
+                #            LightYield.FillCluster(cluster)
                 
+                #if spilltime < 9.0:
                 for station in stations:
                     station.FillRecon(recon_event)
+
+    print "Beginning PostProcessing & Plotting."
     
+    #LightYield.MakeDrawCanvas()
+    
+
     for station in stations:
         station.MakeDrawCanvas()
-        station.MakeResultsDict()
- 
+        print ""
+        print station.MakeResultsDict()
+        print ""
+        
     raw_input("Done, press enter to exit")
 
 if __name__=="__main__":
