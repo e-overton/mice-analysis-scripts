@@ -4,9 +4,11 @@ at some later point..
 """
 
 import ROOT
-from TOFTools import TOF12Coincidence
+from TOFTools import TOF12Coincidence, TOF12CoincidenceTime
 
 class StationStudy:
+
+    instances = 0
 
     def __init__(self, tracker, station):
         """
@@ -19,31 +21,33 @@ class StationStudy:
         
         # The staion to examine
         self.station = station
+        self.ident = self.instances
+        self.instances += 1
 
         n_ch = 220
 		
         # Plane histograms for the selected plane:
-        self.plane_hists = [ ROOT.TH1D("StnSty_PlaneHist_%s_%i_%i"%\
-                                       (self.trkname,self.station, p),\
+        self.plane_hists = [ ROOT.TH1D("StnSty_PlaneHist_%s_%i_%i_%i"%\
+                                       (self.trkname,self.station, p, self.ident),\
                                        "Tracker %s, Station %i, Plane %i; Channel No.; Events"%\
                                        (self.trkname,self.station, p),\
                                        n_ch, -0.5, n_ch-0.5)\
                              for p in range(3)]
 		
         # Now construct the missing plane histograms:
-        self.miss_plane_hists = [ ROOT.TH1D("StnSty_MissPlaneHist_%s_%i_%i"%\
-                                       (self.trkname,self.station, p),\
+        self.miss_plane_hists = [ ROOT.TH1D("StnSty_MissPlaneHist_%s_%i_%i_%i"%\
+                                            (self.trkname,self.station, p, self.ident),\
                                        "Tracker %s, Station %i, Plane %i; Channel No.; Events"%\
                                        (self.trkname,self.station, p),\
                                        n_ch, -0.5, n_ch-0.5)\
                              for p in range(3)]
 
         # The hit type histogram:
-        self.track_hit_type = ROOT.TH1D("StnSty_TrkHitType_%s_%i"%(self.trkname,self.station),\
+        self.track_hit_type = ROOT.TH1D("StnSty_TrkHitType_%s_%i_%i"%(self.trkname,self.station, self.ident),\
                                         "Tracker %s, Station %i; HitType; Events"%(self.tracker,self.station),\
                                         4, -0.5, 3.5)
 
-        self.sp_hit_type = ROOT.TH1D("StnSty_SPHitType_%s_%i"%(self.trkname,self.station),\
+        self.sp_hit_type = ROOT.TH1D("StnSty_SPHitType_%s_%i_%i"%(self.trkname,self.station,self.ident),\
                                      "Tracker %s, Station %i; HitType; Events"%(self.tracker,self.station),\
                                      4, -0.5, 3.5)
         
@@ -60,6 +64,9 @@ class StationStudy:
         if not TOF12Coincidence(ReconEvent.GetTOFEvent()):
             return
 
+        if not TOF12CoincidenceTime(ReconEvent.GetTOFEvent()):
+            return
+
         self.n_events += 1
 
         # Spacepoint type [0 = none, 1 = duplet, 2 = triplet]
@@ -68,20 +75,22 @@ class StationStudy:
         track_in_tracker = False
 
         # Check the tracking:
-        for track in ReconEvent.GetSciFiEvent().straightprtracks():
-            for sp in track.get_spacepoints():
+        for pr in [ReconEvent.GetSciFiEvent().straightprtracks(),\
+            ReconEvent.GetSciFiEvent().helicalprtracks()]:
+            for track in pr:
+                for sp in track.get_spacepoints():
 
-                # Check the tracker
-                if ( self.tracker == sp.get_tracker() ):
-                    track_in_tracker = True
-
-                    #Check the station
-                    if ( self.station == sp.get_station() ):
-                        sp_track_type = len ( sp.get_channels() )
-                        if len ( sp.get_channels() ) == 3:
-                            self.FillTriplet(sp)
-                        elif len ( sp.get_channels() ) == 2:
-                            self.FillDuplet(sp)
+                    # Check the tracker
+                    if ( self.tracker == sp.get_tracker() ):
+                        track_in_tracker = True
+                        
+                        #Check the station
+                        if ( self.station == sp.get_station() ):
+                            sp_track_type = len ( sp.get_channels() )
+                            if len ( sp.get_channels() ) == 3:
+                                self.FillTriplet(sp)
+                            elif len ( sp.get_channels() ) == 2:
+                                self.FillDuplet(sp)
 
         # Update track infomation from previous hunt.
         self.track_hit_type.Fill(sp_track_type)
@@ -116,7 +125,7 @@ class StationStudy:
         for cluster in sp.get_channels():
             missing_plane -= cluster.get_plane()
             kuno_sum += cluster.get_channel()
-        self.miss_plane_hists[missing_plane].Fill(318.5-kuno_sum)
+        self.miss_plane_hists[missing_plane].Fill(318-kuno_sum)
 
 
     def MakeDrawCanvas(self):
