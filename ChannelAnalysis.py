@@ -1,7 +1,7 @@
 """
 Channel Analysis
 
-Part of the "tracker-maus-analysis" Package.
+does some light yield analysis from the 
 """
 
 # Imports:
@@ -10,6 +10,7 @@ import FrontEndLookup
 import ROOT
 
 # Parameters:
+# these should be tuned somehow to help find noise.
 npe_digit_threshold = 0.
 npe_spacepoint_threshold = 0.
 
@@ -71,7 +72,6 @@ class ChannelAnalysis:
         self.decision_npenoise = 0
 
         # A Light Yield Histogram:
-        # Note: python lists are thread safe!, so appending is OK to do lots!
         self.npe_triplet = []
         self.npe_dumiss = []
         self.npe_duhit = []
@@ -186,8 +186,21 @@ class ChannelAnalysisDigtProcessor:
 
     def process(self, digit, cluster, spacepoint, track):
         """
-        This function decides what to call to do the processing
+        This function decides what to call to do the processing of the
+        digit
+
+        :argument digit
+        :type digit: ROOT.MAUS.SciFiDigit
+        :argument cluster
+        :type cluster: ROOT.MAUS.SciFiCluster
+        :argument spacepoint
+        :type spacepoint: ROOT.MAUS.SciFiSpacePoint
+        :argument track [0-220]
+        :type track: ROOT.MAUS.
+
+        :returns nothing
         """
+
         cid = self._get1dref(digit.get_tracker(), digit.get_station(),
                              digit.get_plane(), digit.get_channel())
 
@@ -199,13 +212,19 @@ class ChannelAnalysisDigtProcessor:
         channel in tracker space.
 
         :argument tracker [0,1]
+        :type tracker: int
         :argument station [1,2,3,4,5]
+        :type station: int
         :argument plane [0,1,2]
+        :type plane: int
         :argument channel [0-220]
+        :type channel: int
+        :rtype int
         :returns unique reference to channel
         """
-        ref = channel + (plane + (station - 1 + tracker * FrontEndLookup.N_Station)
-                       *FrontEndLookup.N_Plane) * FrontEndLookup.N_Channel
+        ref = channel + (plane + (station - 1 +
+                                  tracker * FrontEndLookup.N_Station) *
+                         FrontEndLookup.N_Plane) * FrontEndLookup.N_Channel
         return ref
 
     def _de1dref(self, ref):
@@ -213,6 +232,7 @@ class ChannelAnalysisDigtProcessor:
         Get a 1 dimenstional referference which can be used to find the
         channel in tracker space.
         :argument ref - the reference to dereferecne.
+        :type ref: int
         :returns tracker, station, plane, channel
         """
         channel = ref % FrontEndLookup.N_Channel
@@ -234,10 +254,11 @@ class ChannelAnalysisResultsProcessor:
     def __init__(self, channels):
         """
         initilised using the "Channel Analusis" object.
-        :argument ChannelAnalysis, a Channel Analysis object to process.
+        :param ChannelAnalysis, a Channel Analysis object to process. or 
+        a list of objects.
         """
 
-        if not isinstance (channels, list):
+        if not isinstance(channels, list):
             channels = [channels]
 
         for c in channels:
@@ -246,38 +267,64 @@ class ChannelAnalysisResultsProcessor:
         self.basename = "hly_"
 
         # Generate the histogram objects:
-        self.h_ly_triplet = self.generateLYHistogram(self.basename+"triplet",
-                                                     channels, "npe_triplet")
+        self.h_ly_triplet = self.generateLYHistogram(self.basename+"triplet")
+        self.h_ly_dumiss = self.generateLYHistogram(self.basename+"dumiss")
+        self.h_ly_duhit = self.generateLYHistogram(self.basename+"duhit")
+        self.h_ly_dunoise = self.generateLYHistogram(self.basename+"dunoise")
+        self.h_ly_sihit = self.generateLYHistogram(self.basename+"sihit")
+        self.h_ly_simiss = self.generateLYHistogram(self.basename+"simiss")
 
-        self.h_ly_dumiss = self.generateLYHistogram(self.basename+"dumiss",
-                                                    channels, "npe_dumiss")
-
-        self.h_ly_duhit = self.generateLYHistogram(self.basename+"duhit",
-                                                   channels, "npe_duhit")
-
-        self.h_ly_dunoise = self.generateLYHistogram(self.basename+"dunoise",
-                                                     channels, "npe_dunoise")
-
-        self.h_ly_sihit = self.generateLYHistogram(self.basename+"sihit",
-                                                   channels, "npe_singlehit")
-
-        self.h_ly_simiss = self.generateLYHistogram(self.basename+"simiss",
-                                                    channels, "npe_singlenoise")
+        # Fill
+        for c in channels:
+            self.fillChannel(c)
 
     def generateLYHistogram(self, name, channels, key):
         """
         generate and return a histogram from the data presented
-        :argument name Name of histogram
-        :argument channels "ChannelAnalysis" objects to fill
+
+        :param name: Name of histogram
+        :type name: string
+
+        :rtype ROOT.TH1D
         :returns histogram object
         """
+
         axistitle = ";Light Yield (npe); Events"
         h = ROOT.TH1D(name, name + axistitle, 30, -0.5, 29.5)
-        for channel in channels:
-            for npe in getattr(channel, key):
-                h.Fill(npe)
+        # for channel in channels:
+        #    for npe in getattr(channel, key):
+        #        h.Fill(npe)
 
         return h
+
+    def fillLYHistogram(self, hist, npes):
+        """
+        Function to fill a histogram from a list of data
+
+        :param hist: Histogram object to fill
+        :type hist: ROOT.TH1D
+
+        :param npes: Array of floats to fill histogram from
+        :type npes: [number]
+        """
+
+        for npe in npes:
+            hist.Fill(npe)
+
+    def fillChannel(self, channel):
+        """
+        Fill the internal histogram objects from the channel
+
+        :param channel: Input channel to fill from
+        :type channel: ChannelAnalysis
+        """
+
+        self.fillLYHistogram(self.h_ly_triplet, channel.npe_triplet)
+        self.fillLYHistogram(self.h_ly_dumiss, channel.npe_dumiss)
+        self.fillLYHistogram(self.h_ly_duhit, channel.npe_duhit)
+        self.fillLYHistogram(self.h_ly_dunoise, channel.npe_dunoise)
+        self.fillLYHistogram(self.h_ly_sihit, channel.npe_singlehit)
+        self.fillLYHistogram(self.h_ly_simiss, channel.npe_singlenoise)
 
     def draw(self):
         """
@@ -296,13 +343,11 @@ class ChannelAnalysisResultsProcessor:
         self.h_ly_duhit.SetLineColor(ROOT.kBlue)
         self.h_ly_duhit.Draw("Same")
 
-        #self.h_ly_dunoise.SetLineColor(ROOT.kRed)
-        #self.h_ly_dunoise.Draw("Same")
+        # self.h_ly_dunoise.SetLineColor(ROOT.kRed)
+        # self.h_ly_dunoise.Draw("Same")
 
         self.h_ly_sihit.SetLineColor(ROOT.kViolet)
         self.h_ly_sihit.Draw("Same")
 
-        #self.h_ly_simiss.SetLineColor(ROOT.kOrange)
-        #self.h_ly_simiss.Draw("Same")
-
-
+        # self.h_ly_simiss.SetLineColor(ROOT.kOrange)
+        # self.h_ly_simiss.Draw("Same")

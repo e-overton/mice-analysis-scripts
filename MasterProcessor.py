@@ -45,6 +45,8 @@ class MasterProcessor:
 
         self._process()
 
+        self._process_end()
+
         self.reset()
 
     def _generateUnusedLists(self, recon):
@@ -157,6 +159,24 @@ class MasterProcessor:
         for i, evt_digit in enumerate(self.recon.digits()):
             if (evt_digit.get_npe() == digit.get_npe()):
                 self.digits_used[i] = True
+
+    def _process_end(self):
+        """
+        Call a process_end function on all processors
+        to do any "end of recon" tasks.
+        """
+
+        for process_list in [self.digit_processors,
+                             self.cluster_processors,
+                             self.spacepoint_processors,
+                             self.straight_processors,
+                             self.helical_processors]:
+
+            for process in process_list:
+                # try:
+                process.process_end(self.recon)
+                # except AttributeError:
+                #    continue
 
 
 class dummy_digit_processor:

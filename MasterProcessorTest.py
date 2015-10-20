@@ -5,12 +5,15 @@ Some test scripts for testing things..
 
 import ROOT
 import os
-import libMausCpp
+import libMausCpp  # @UnusedImport
 import pickle
 
 from MasterProcessor import MasterProcessor
 from ChannelAnalysis import ChannelAnalysisDigtProcessor
+from SpacepointAnalysis import SpacepointMultiplicityProcessor
 from FrontEndLookup import FrontEndLookup
+from TOFTools import TOF12CoincidenceTime
+from EMRTools import EMRMuon
 
 filepath = "/home/ed/MICE/testdata/"
 fname = "07410_recon.root"
@@ -40,22 +43,25 @@ lookup = FrontEndLookup(maus_scifi_mapping, maus_scifi_calibration,
                         maus_scifi_badch)
 
 print "Setting up ROOT TChain"
-chain = ROOT.TChain("Spill")
+chain = ROOT.TChain("Spill")  # @UndefinedVariable
 for f in maus_datafile:
     print "Appending file: ", f
     chain.AddFile(f)
 
 print "Setting up data"
 tree = chain
-data = ROOT.MAUS.Data()  # pylint: disable = E1101
+data = ROOT.MAUS.Data()  # pylint: disable = E1101 @UndefinedVariable
 tree.SetBranchAddress("data", data)
 
-max_spills = 100000
+max_spills = 1000000
 
 # otuputter = ROOT.TFile("test.root","RECREATE")
 
 dpro = ChannelAnalysisDigtProcessor(lookup)
-master = MasterProcessor(digit_processors=[dpro])
+tku_sp = SpacepointMultiplicityProcessor(0)
+tkd_sp = SpacepointMultiplicityProcessor(1)
+master = MasterProcessor(digit_processors=[],
+                         spacepoint_processors=[tku_sp, tkd_sp])
 
 # Process MAUS data ###########################################################
 print "Beginning Processing"
@@ -76,9 +82,20 @@ for i in range(tree.GetEntries()):
     # Process recon event:
     for j, recon_event in enumerate(spill.GetReconEvents()):
 
-        master(recon_event.GetSciFiEvent())
+        print j, ":",
+
+        if TOF12CoincidenceTime(recon_event.GetTOFEvent()):
+            print " TOF12",
+            if EMRMuon(recon_event.GetEMREvent()):
+                print " EMR-MU",
+                #print j, ", "
+                master(recon_event.GetSciFiEvent())
+
+        print ""
 
 
+pickle.dump(tku_sp, file('tku_sp.pickle', 'w'))
+pickle.dump(tkd_sp, file('tkd_sp.pickle', 'w'))
 pickle.dump(dpro, file('dpro.pickle', 'w'))
 
 

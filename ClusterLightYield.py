@@ -58,8 +58,11 @@ class ClusterLightYield:
 
         digits = cluster.get_digits()
         n_digits = len (digits)
-        if n_digits == 2:
-            return
+        
+        # Uncomment this line to remove clusters
+        # formed of two digits.
+        #if n_digits == 2:
+        #    return
 
         # Fill light yield histograms:
         npe = 0
