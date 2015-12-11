@@ -8,7 +8,7 @@ import os
 import ROOT
 import libMausCpp  # pylint: disable = W0611
 from TOFTools import TOF12CoincidenceTime
-from SpacepointTools import unsaturatedCluster
+from SciFiTools import UnsaturatedCluster
 from ROOTTools import TemplateFitter, IntegrateExpErr
 import math
 
@@ -19,9 +19,9 @@ infiles = ["7367/7367_recon.root", "7369/7369_recon.root",
            "7370/7370_recon.root", "7372/7372_recon.root",
            "7373/7373_recon.root", "7375/7375_recon.root",
            "7376/7376_recon.root", "7377/7377_recon.root"]
-max_spills = 0
+max_spills = 0 # Will run ofver all data
 
-outrootfile = "7367_efficiency.root"
+outrootfile = "output/7367_efficiency.root"
 
 ###############################################################################
 # Main Script
@@ -83,7 +83,7 @@ for i in range(chain.GetEntries()):
                     counts[basename + "triplet"] += 1
                     for cluster in sp.get_channels():
                         th1ds[basename + "triplet"].Fill\
-                            (unsaturatedCluster(cluster))
+                            (UnsaturatedCluster(cluster))
             # Identify stations without triplets and store duplet
             # info
             for sp in recon_event.GetSciFiEvent().spacepoints():
@@ -94,7 +94,7 @@ for i in range(chain.GetEntries()):
                         counts[basename + "duplet"] += 1
                         for cluster in sp.get_channels():
                             th1ds[basename + "duplet"].Fill\
-                                (unsaturatedCluster(cluster))
+                                (UnsaturatedCluster(cluster))
         print ""
 
 ###############################################################################

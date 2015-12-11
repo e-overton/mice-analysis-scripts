@@ -4,7 +4,7 @@ Some tools for processing spacepoints.. (and now clusters)
 """
 
 
-def missingFromDuplet(sp):
+def MissingFromDuplet(sp):
     """
     Determine the missing plane and channel from a duplet
     spacepoint. Using the kuno sum
@@ -29,7 +29,7 @@ def missingFromDuplet(sp):
     return plane_total - plane_sum, kuno_total - kuno_sum
 
 
-def unsaturatedCluster(cluster):
+def UnsaturatedCluster(cluster):
     """
     Determine the light yield from a cluster, but also
     check for saturation effects.
