@@ -47,16 +47,17 @@ class SpacepointMultiplicityProcessor:
         self.spacepoints_solo.append(self.spacepoints_solo_this)
         self.spacepoints_solo_this = 0
 
+        """ Not using plot functions:
         if self.spacepoints_used[-1] == 0 and \
-            self.spacepoints_solo[-1] > 4:
+           self.spacepoints_solo[-1] > 4:
 
-            print ("test")
-            plot = PlotSciFiEvent()
-            plot.fill(recon_event)
-            plot.draw()
-            raw_input("Waiting...")
-
-
+            # print ("test")
+            if self.tracker == 1:
+                plot = PlotSciFiEvent()
+                plot.fill(recon_event)
+                plot.draw()
+                raw_input("Waiting...")
+        """
 
 
 class SpacepointMultiplicityResultsProcessor:
@@ -79,6 +80,10 @@ class SpacepointMultiplicityResultsProcessor:
                                  "h_%s_sp" % self.name,
                                  7, -0.5, 6.5)
 
+        self.sp_all = ROOT.TH1D("h_%s_all" % self.name,
+                                "h_%s_all" % self.name,
+                                10, -0.5, 9.5)
+
     def append(self, ms):
         """
         Append Multuplicity infomation from a spacepoint multiplicity processor
@@ -91,4 +96,6 @@ class SpacepointMultiplicityResultsProcessor:
 
         for m in ms.spacepoints_used:
             self.track_mult.Fill(m)
-        
+
+        for n, m in zip(ms.spacepoints_used, ms.spacepoints_solo):
+            self.sp_all.Fill(n+m)

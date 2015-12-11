@@ -48,10 +48,15 @@ class PlotSciFiEvent:
                             (tracker, track, prj)).Set(0)
 
         for sp in scifi_recon_event.spacepoints():
+
+            if len ( sp.get_channels() ) == 2:
+                continue
+
             tracker = "us" if sp.get_tracker() == 0 else "ds"
             track = "nat"
 
             # Find track:
+            # TODO:  Look for is used flag
             find_npe = sp.get_npe()
 
             for trk in scifi_recon_event.straightprtracks():
@@ -103,3 +108,9 @@ class PlotSciFiEvent:
 
                 mg.Draw("a")
                 setattr(self, "mg_%s_%s" % (tracker, prj), mg)
+                try:
+                    if j == 3:
+                        mg.GetXaxis().SetRangeUser(-150, 150)
+                    mg.GetYaxis().SetRangeUser(-150, 150)
+                except:
+                    pass

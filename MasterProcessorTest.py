@@ -16,13 +16,21 @@ from TOFTools import TOF12CoincidenceTime
 from EMRTools import EMRMuon
 
 filepath = "/home/ed/MICE/testdata/"
-fname = "07410_recon.root"
-maus_datafile = [os.path.join(filepath, fname)]
+# fname = "07410_recon.root"
+# maus_datafile = [os.path.join(filepath, fname)]
 
-files = ["7367/7367_recon.root", "7369/7369_recon.root",
-         "7370/7370_recon.root", "7372/7372_recon.root",
-         "7373/7373_recon.root", "7375/7375_recon.root",
-         "7376/7376_recon.root", "7377/7377_recon.root"]
+
+# files = ["7367/7367_recon.root", "7369/7369_recon.root",
+#         "7370/7370_recon.root", "7372/7372_recon.root",
+#         "7373/7373_recon.root", "7375/7375_recon.root",
+#         "7376/7376_recon.root", "7377/7377_recon.root"]
+
+# files = ["07387_recon.root"]
+# files = ["07475_recon.root"]
+# files = ["07417_recon.root"]
+
+files = ["%05d_recon.root" % i for i in range(7515, 7547)]
+print files
 
 maus_datafile = [os.path.join(filepath, f) for f in files]
 
@@ -53,14 +61,14 @@ tree = chain
 data = ROOT.MAUS.Data()  # pylint: disable = E1101 @UndefinedVariable
 tree.SetBranchAddress("data", data)
 
-max_spills = 1000000
+max_spills = 100000
 
 # otuputter = ROOT.TFile("test.root","RECREATE")
 
 dpro = ChannelAnalysisDigtProcessor(lookup)
 tku_sp = SpacepointMultiplicityProcessor(0)
 tkd_sp = SpacepointMultiplicityProcessor(1)
-master = MasterProcessor(digit_processors=[],
+master = MasterProcessor(digit_processors=[dpro],
                          spacepoint_processors=[tku_sp, tkd_sp])
 
 # Process MAUS data ###########################################################
@@ -70,10 +78,11 @@ for i in range(tree.GetEntries()):
     if i > max_spills:
         break
 
-    print "Spill", i, "/", tree.GetEntries(), "###############################"
+    print "Spill", i, "/", tree.GetEntries(), "############################### ",
 
     tree.GetEntry(i)
     spill = data.GetSpill()
+    print spill.GetSpillNumber()
 
     # Skip non-physics events:
     if spill.GetDaqEventType() != "physics_event":
@@ -86,17 +95,17 @@ for i in range(tree.GetEntries()):
 
         if TOF12CoincidenceTime(recon_event.GetTOFEvent()):
             print " TOF12",
-            if EMRMuon(recon_event.GetEMREvent()):
-                print " EMR-MU",
-                #print j, ", "
-                master(recon_event.GetSciFiEvent())
+            #if EMRMuon(recon_event.GetEMREvent()):
+            #    print " EMR-MU",
+            #print j, ", "
+            master(recon_event.GetSciFiEvent())
 
         print ""
 
 
-pickle.dump(tku_sp, file('tku_sp.pickle', 'w'))
-pickle.dump(tkd_sp, file('tkd_sp.pickle', 'w'))
-pickle.dump(dpro, file('dpro.pickle', 'w'))
+pickle.dump(tku_sp, file('tku_sp2.pickle', 'w'))
+pickle.dump(tkd_sp, file('tkd_sp2.pickle', 'w'))
+pickle.dump(dpro, file('dpro2.pickle', 'w'))
 
 
 # otuputter.Write()

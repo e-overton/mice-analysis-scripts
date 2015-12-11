@@ -193,11 +193,12 @@ if __name__ == "__main__":
     # lookup = None # comment this line for lightyields.
 
     filepath = "/home/ed/MICE/testdata/"
-    files = ["7367/7367_recon.root", "7369/7369_recon.root",
-             "7370/7370_recon.root", "7372/7372_recon.root",
-             "7373/7373_recon.root", "7375/7375_recon.root",
-             "7376/7376_recon.root", "7377/7377_recon.root"]
+    #files = ["7367/7367_recon.root", "7369/7369_recon.root",
+    #         "7370/7370_recon.root", "7372/7372_recon.root",
+    #         "7373/7373_recon.root", "7375/7375_recon.root",
+    #         "7376/7376_recon.root", "7377/7377_recon.root"]
+    files = ["07513_recon.root"]
     filespath = [os.path.join(filepath, f) for f in files]
 
     fname = "07411_recon.root"
-    main(os.path.join(filepath, fname), lookup, "out7411.root", "output/7411")
+    main(os.path.join(filepath, fname), lookup, "out7513.root", "output/7513")

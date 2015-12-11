@@ -94,7 +94,7 @@ class ClusterLightYield:
             self.raw_hist.Fill(npe)
             if not saturated:
                 self.cut_hist.Fill(npe)
-            
+
 
     def ProcessResult(self):
         """
@@ -129,7 +129,7 @@ class ClusterLightYield:
         """
         Finally make me a canvas of the results
         """
-        
+
         self.ProcessResult()
 
         self.legends = []

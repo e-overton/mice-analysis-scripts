@@ -185,4 +185,3 @@ class dummy_digit_processor:
         print ("digit: %r, cluster %r, spacepoint %r, track %r" %
                ((digit is not None), (cluster is not None),
                 (spacepoint is not None), (track is not None)))
-

@@ -1,5 +1,5 @@
 """
-Some tools for processing spacepoints..
+Some tools for processing spacepoints.. (and now clusters)
 
 """
 
@@ -27,3 +27,21 @@ def missingFromDuplet(sp):
         kuno_sum += cluster.get_channel()
 
     return plane_total - plane_sum, kuno_total - kuno_sum
+
+
+def unsaturatedCluster(cluster):
+    """
+    Determine the light yield from a cluster, but also
+    check for saturation effects.
+    """
+    isSaturated = False
+    npe_sum = 0
+    for digit in cluster.get_digits():
+        if abs(digit.get_adc() - 255) < 0.5:
+            isSaturated = True
+        npe_sum += digit.get_npe()
+
+    if isSaturated:
+        return 0.0
+    else:
+        return npe_sum

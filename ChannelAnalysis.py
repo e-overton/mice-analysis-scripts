@@ -1,32 +1,36 @@
 """
 Channel Analysis
 
-does some light yield analysis from the 
+does some light yield analysis from the tracker
 """
 
 # Imports:
 from SpacepointTools import missingFromDuplet
 import FrontEndLookup
 import ROOT
+import math
 
 # Parameters:
-# these should be tuned somehow to help find noise.
-npe_digit_threshold = 0.
-npe_spacepoint_threshold = 0.
 
 
 class ChannelAnalysis:
     """
     An analysis object to collect and then process
     infomation from a single channel inside the detector.
-
     """
-
     unique_counter = 0
 
     def __init__(self, loaddict=None, name=None, felookup=None):
         """
         Constructor.
+
+        :argument name: Name of class
+        :type name: string
+        :argument felookup: Front end lookup object
+        :type felookup: FrontEndLookup
+        :argument channel: Channel data stored in {}
+        :type channel: {}
+        :
         """
         if not (loaddict is None):
             self.loaddict(loaddict)
@@ -54,6 +58,11 @@ class ChannelAnalysis:
     def init(self, name, felookup):
         """
         Perform construction functions
+
+        :argument name: Name of class
+        :type name: string
+        :argument felookup: Front end lookup object
+        :type felookup: FrontEndLookup
         """
 
         self.name = name
@@ -61,46 +70,46 @@ class ChannelAnalysis:
         self.unique_counter += 1
 
         self.frontEndLookup = felookup
-        self.npe_digit_threshold = npe_digit_threshold
-        self.npe_spacepoint_threshold = npe_spacepoint_threshold
+        self.channel = -1
+        self.station = -1
+        self.plane = -1
+        self.tracker = -1
+        self.saturation_pe = -1
 
-        # Some internal counters:
-        self.decision_triplet = 0
-        self.decision_duplet = 0
-        self.decision_missing = 0
-        self.decision_npehit = 0
-        self.decision_npenoise = 0
-
-        # A Light Yield Histogram:
+        # A log of the light yeilds, not stored as
+        # a histogram to preserve unbinned data:
         self.npe_triplet = []
         self.npe_dumiss = []
-        self.npe_duhit = []
-        self.npe_dunoise = []
-        self.npe_singlehit = []
-        self.npe_singlenoise = []
+        self.npe_duplet = []
+        self.npe_single = []
+
+    def process_end(self, recon):
+        pass
 
     def process(self, digit, cluster, spacepoint=None, track=None):
         """
-        Fill function for filling the cluster with infomation.
-        """
-        noise = self.isNoise(digit, cluster, spacepoint, track)
-
-    def isNoise(self, digit, cluster, spacepoint=None,
-                track=None):
-        """
         Function for identifying if the channel is probably
         noise.
+
+        :argument digit
+        :type digit: ROOT.MAUS.SciFiDigit
+        :argument cluster
+        :type cluster: ROOT.MAUS.SciFiCluster
+        :argument spacepoint
+        :type spacepoint: ROOT.MAUS.SciFiSpacePoint
+
+        :returns nothing
         """
 
-        # Find an out if the track is assosiated with a triplet
-        # spacepoint:
-        if not (spacepoint is None) and \
+        # Find an out if the hit is a triplet spacepoint, duplet
+        # spacepoint, or a single hit.
+        if (spacepoint is not None) and \
                 (len(spacepoint.get_channels()) == 3):
-            # Triplets are considered to be noise free by this analysis
+            # Store the triplet light yield data:
             self.npe_triplet.append(self.getNPE_nonsaturated(digit))
-            return False
 
-        elif not (spacepoint is None) and \
+        # Now inspect duplets:
+        elif (spacepoint is not None) and \
                 (len(spacepoint.get_channels()) == 2):
 
             # Determine if a missing channel could be blamed for
@@ -109,7 +118,6 @@ class ChannelAnalysis:
             missing_plane, missing_channel = missingFromDuplet(spacepoint)
 
             if self.frontEndLookup is not None:
-
                 # Perform the looup for dead channels
                 dead_channels = self.frontEndLookup.\
                     GetBadChannelsPlane(spacepoint.get_tracker(),
@@ -124,20 +132,12 @@ class ChannelAnalysis:
             # Conditional check:
             if (missing):
                 self.npe_dumiss.append(self.getNPE_nonsaturated(digit))
-                return False
-            elif (spacepoint.get_npe() > self.npe_spacepoint_threshold):
-                self.npe_duhit.append(self.getNPE_nonsaturated(digit))
-                return False
             else:
-                self.npe_dunoise.append(self.getNPE_nonsaturated(digit))
-                return True
+                self.npe_duplet.append(self.getNPE_nonsaturated(digit))
 
-        # Perform a final light yield check:
-        if digit.get_npe() > self.npe_digit_threshold:
-            self.npe_singlehit.append(self.getNPE_nonsaturated(digit))
-            return False
+        # Finally, if this is a single hit then update the single hits.
         else:
-            self.npe_singlenoise.append(self.getNPE_nonsaturated(digit))
+            self.npe_single.append(self.getNPE_nonsaturated(digit))
             return True
 
     def getNPE_nonsaturated(self, digit):
@@ -160,11 +160,13 @@ class ChannelAnalysisDigtProcessor:
     def __init__(self, felookup):
         """
         Some basic stuff to build all the channels!
+        :type felookup: FrontEndLookup
         """
         self.felookup = felookup
 
         # Construct array of channels:
-        self.channels = [None] * self._get1dref(FrontEndLookup.N_Tracker, 1, 0, 0)
+        self.channels = [None] * self._get1dref(FrontEndLookup.N_Tracker,
+                                                1, 0, 0)
 
         for tracker in range(FrontEndLookup.N_Tracker):
             for station in range(1, FrontEndLookup.N_Station+1):
@@ -178,11 +180,21 @@ class ChannelAnalysisDigtProcessor:
                         # Construct the actual channel objects
                         self.channels[cid] = ChannelAnalysis\
                             (loaddict=None, name=n, felookup=self.felookup)
-                        # Store infomation for tracker, station, plane, channel:
+                        # Store infomation for tracker, station, plane, channel
                         self.channels[cid].tracker = tracker
                         self.channels[cid].station = station
                         self.channels[cid].plane = plane
                         self.channels[cid].channel = channel
+
+                        # Compute local saturation PE:
+                        try:
+                            fe = felookup.GetChannel(tracker, station,
+                                                     plane, channel)
+                            self.channels[cid].saturation_pe = \
+                                (255-fe["adc_pedestal"])/fe["adc_gain"]
+
+                        except:
+                            print "Failed to find saturation for %s" % n
 
     def process(self, digit, cluster, spacepoint, track):
         """
@@ -195,8 +207,6 @@ class ChannelAnalysisDigtProcessor:
         :type cluster: ROOT.MAUS.SciFiCluster
         :argument spacepoint
         :type spacepoint: ROOT.MAUS.SciFiSpacePoint
-        :argument track [0-220]
-        :type track: ROOT.MAUS.
 
         :returns nothing
         """
@@ -205,6 +215,9 @@ class ChannelAnalysisDigtProcessor:
                              digit.get_plane(), digit.get_channel())
 
         self.channels[cid].process(digit, cluster, spacepoint, track)
+
+    def process_end(self, recon):
+        pass
 
     def _get1dref(self, tracker, station, plane, channel):
         """
@@ -254,8 +267,8 @@ class ChannelAnalysisResultsProcessor:
     def __init__(self, channels):
         """
         initilised using the "Channel Analusis" object.
-        :param ChannelAnalysis, a Channel Analysis object to process. or 
-        a list of objects.
+        :param channels, list of channel analysis objects
+        :type channels: [ChannelAnalysis]
         """
 
         if not isinstance(channels, list):
@@ -269,16 +282,17 @@ class ChannelAnalysisResultsProcessor:
         # Generate the histogram objects:
         self.h_ly_triplet = self.generateLYHistogram(self.basename+"triplet")
         self.h_ly_dumiss = self.generateLYHistogram(self.basename+"dumiss")
-        self.h_ly_duhit = self.generateLYHistogram(self.basename+"duhit")
-        self.h_ly_dunoise = self.generateLYHistogram(self.basename+"dunoise")
-        self.h_ly_sihit = self.generateLYHistogram(self.basename+"sihit")
-        self.h_ly_simiss = self.generateLYHistogram(self.basename+"simiss")
+        self.h_ly_duplet = self.generateLYHistogram(self.basename+"duplet")
+        self.h_ly_single = self.generateLYHistogram(self.basename+"single")
 
         # Fill
         for c in channels:
             self.fillChannel(c)
 
-    def generateLYHistogram(self, name, channels, key):
+        # Store channel data persistently:
+        self.channels = channels
+
+    def generateLYHistogram(self, name):
         """
         generate and return a histogram from the data presented
 
@@ -291,9 +305,6 @@ class ChannelAnalysisResultsProcessor:
 
         axistitle = ";Light Yield (npe); Events"
         h = ROOT.TH1D(name, name + axistitle, 30, -0.5, 29.5)
-        # for channel in channels:
-        #    for npe in getattr(channel, key):
-        #        h.Fill(npe)
 
         return h
 
@@ -311,6 +322,143 @@ class ChannelAnalysisResultsProcessor:
         for npe in npes:
             hist.Fill(npe)
 
+    def findLightYield(self):
+        """
+        Function to evaluate the light yield of this tracker
+        fibre. Using RooFit unbinned likelihood fitter.
+        """
+        max_npe = 0
+        for c in self.channels:
+            for n in c.npe_triplet:
+                if n > max_npe:
+                    max_npe = n
+
+        # Check that we actulalry found a hit 
+        if max_npe == 0:
+            return 0.0, 0.0
+
+        # Observable: n photo electrons
+        npe = ROOT.RooRealVar("npe", "npe", 2, 30)
+        npe.setRange("R1", 5, math.floor(max_npe))
+
+        # Generate Roo dataset
+        argset = ROOT.RooArgSet()
+        argset.add(npe)
+        dataset = ROOT.RooDataSet("data", "data", argset)
+        for c in self.channels:
+            for n in c.npe_triplet:
+                if n > 1:
+                    npe.setVal(n)
+                    dataset.add(argset)
+
+        # Parameterisation (poission, with mean=npe_mean)
+        npe_mean = ROOT.RooRealVar("npe_mean", "npe_mean", 3, 20)
+        poisson = ROOT.RooPoisson("lightyield", "ly", npe, npe_mean)
+
+        poisson.fitTo(dataset, ROOT.RooFit.Range("R1"))
+
+        # PLot.
+        # frame = npe.frame()
+        # dataset.plotOn(frame)
+        # poisson.plotOn(frame)
+        # frame.Draw()
+        # raw_input("test")
+
+        return npe_mean.getValV(), npe_mean.getError()
+
+    def parameteriseLightYield(self, dataname):
+        """
+        Function to parameterise the light yield from the
+        detector hits, using two poissons, with independent
+        integrals..
+        """
+
+        datanames = ["triplet", "dumiss", "duplet", "single"]
+
+        max_npe = 0
+        for c in self.channels:
+            for dataname in datanames:
+                for n in getattr(c, "npe_%s" % dataname):
+                    if n > max_npe:
+                        max_npe = n
+
+        # Check that we actulalry found a hit 
+        if max_npe == 0:
+            return "FAIL"
+
+        # Generate some datasets. One for triplet, duplet and singlet
+        npe = ROOT.RooRealVar("npe", "npe", 0, 30)
+        npe_arg = ROOT.RooArgSet()
+        npe_arg.add(npe)
+
+        npe.setRange("R1", 2, math.floor(max_npe))
+        datasets = {}
+        sample = ROOT.RooCategory("sample", "sample")
+        for dataname in datanames:
+            datasets[dataname] = ROOT.RooDataSet("data_%s" % dataname,
+                                                 "data_%s" % dataname,
+                                                 npe_arg)
+            sample.defineType(dataname)
+            for c in self.channels:
+                for n in getattr(c, "npe_%s" % dataname):
+                    if n > 1:
+                        npe.setVal(n)
+                        datasets[dataname].add(npe_arg)
+
+        # Generate the combined dataset:
+        data_all = ROOT.RooDataSet\
+            ("combData", "combined data", npe_arg, ROOT.RooFit.Index(sample),
+             ROOT.RooFit.Import("triplet", datasets["triplet"]),
+             ROOT.RooFit.Import("dumiss", datasets["dumiss"]),
+             ROOT.RooFit.Import("duplet", datasets["duplet"]),
+             ROOT.RooFit.Import("single", datasets["single"]))
+
+        # Generate Data Model:
+        hit_mean = ROOT.RooRealVar("hit_mean", "hit_mean", 5, 20)
+        hit_pdf = ROOT.RooPoisson("hit_ly", "hit_ly", npe, hit_mean)
+        noise_decay = ROOT.RooRealVar("noise_decay", "noise_decay", -2, 2)
+        noise_pdf = ROOT.RooExponential("noise_ly", "noise_ly", npe, noise_decay)
+        simultaneous_pdf = ROOT.RooSimultaneous("simpdf","simultaneous pdf",sample)
+
+        # Include all the fits we want to do:
+        n = {}
+        pdf = {}
+        for dataname in datanames:
+            n["hit_%s" % dataname] = ROOT.RooRealVar("hit_%s_n" % dataname,
+                                                     "hit_%s_n" % dataname, 0, 10000)
+
+            n["noise_%s" % dataname] = ROOT.RooRealVar("noise_%s_n" % dataname,
+                                                       "noise_%s_n" % dataname, 0, 10000)
+
+            pdf["hit_%s" % dataname] = ROOT.RooExtendPdf("hit_%s_ep" % dataname,
+                                                         "hit_%s_ep" % dataname,
+                                                         hit_pdf, n["hit_%s" % dataname])
+
+            pdf["noise_%s" % dataname] = ROOT.RooExtendPdf("noise_%s_ep" % dataname,
+                                                           "noise_%s_ep" % dataname,
+                                                           noise_pdf, n["noise_%s" % dataname])
+
+            pdf["comb_%s" % dataname] = ROOT.RooAddPdf("comb_%s" % dataname,
+                                                       "hit+noise comb %s" % dataname,
+                                                       ROOT.RooArgList(pdf["hit_%s" % dataname],
+                                                                       pdf["noise_%s" % dataname]))
+            simultaneous_pdf.addPdf(pdf["comb_%s" % dataname], dataname)
+
+        simultaneous_pdf.fitTo(data_all)
+
+        #Drawing functionality...
+        triplet_frame = npe.frame(ROOT.RooFit.Bins(30),
+                                  ROOT.RooFit.Title("TripletFit"))
+        
+        datasets["triplet"].plotOn(triplet_frame)
+        simultaneous_pdf.plotOn(triplet_frame,datasets["triplet"])
+        
+        triplet_frame.Draw()
+        
+        raw_input("hang on")
+        
+
+
     def fillChannel(self, channel):
         """
         Fill the internal histogram objects from the channel
@@ -321,10 +469,8 @@ class ChannelAnalysisResultsProcessor:
 
         self.fillLYHistogram(self.h_ly_triplet, channel.npe_triplet)
         self.fillLYHistogram(self.h_ly_dumiss, channel.npe_dumiss)
-        self.fillLYHistogram(self.h_ly_duhit, channel.npe_duhit)
-        self.fillLYHistogram(self.h_ly_dunoise, channel.npe_dunoise)
-        self.fillLYHistogram(self.h_ly_sihit, channel.npe_singlehit)
-        self.fillLYHistogram(self.h_ly_simiss, channel.npe_singlenoise)
+        self.fillLYHistogram(self.h_ly_duplet, channel.npe_duplet)
+        self.fillLYHistogram(self.h_ly_single, channel.npe_single)
 
     def draw(self):
         """
@@ -340,14 +486,10 @@ class ChannelAnalysisResultsProcessor:
         self.h_ly_dumiss.SetLineColor(ROOT.kGreen)
         self.h_ly_dumiss.Draw("Same")
 
-        self.h_ly_duhit.SetLineColor(ROOT.kBlue)
-        self.h_ly_duhit.Draw("Same")
+        self.h_ly_duplet.SetLineColor(ROOT.kBlue)
+        self.h_ly_duplet.Draw("Same")
 
-        # self.h_ly_dunoise.SetLineColor(ROOT.kRed)
-        # self.h_ly_dunoise.Draw("Same")
+        self.h_ly_single.SetLineColor(ROOT.kViolet)
+        self.h_ly_single.Draw("Same")
+        
 
-        self.h_ly_sihit.SetLineColor(ROOT.kViolet)
-        self.h_ly_sihit.Draw("Same")
-
-        # self.h_ly_simiss.SetLineColor(ROOT.kOrange)
-        # self.h_ly_simiss.Draw("Same")

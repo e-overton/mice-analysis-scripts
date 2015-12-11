@@ -6,7 +6,7 @@ Simple class to facilitate
 import json
 
 # Definitions:
-N_Channel = 220
+N_Channel = 216
 N_Station = 5
 N_Plane = 3
 N_Tracker = 2
@@ -56,23 +56,27 @@ class FrontEndLookup:
         # validate channel:
         good = True
 
-        if tracker != c["tracker"]:
-            print "tracker mismatch"
+        try:
+            if tracker != c["tracker"]:
+                print "tracker mismatch"
+                good = False
+
+            if station != c["station"]:
+                print "station mismatch"
+                good = False
+
+            if plane != c["plane"]:
+                print "plane mismatch"
+                good = False
+
+            if channel != c["trchan"]:
+                print "channel mismatch"
+                good = False
+        except:
+            raise LookupException("Exception in lookup")
             good = False
 
-        if station != c["station"]:
-            print "station mismatch"
-            good = False
-
-        if plane != c["plane"]:
-            print "plane mismatch"
-            good = False
-
-        if channel != c["trchan"]:
-            print "channel mismatch"
-            good = False
-
-        if good == False:
+        if not good:
             print "Plane mismatch "
             raise LookupException("Tracker station plane do not match")
 
@@ -175,7 +179,6 @@ class FrontEndLookup:
         the bad channels for each tracker, station, and plane
         are stored.
         """
-
         badplanelookup = [[] for i in range(self._getPlaneRef
                                             (N_Tracker, 1, 0))]
 
