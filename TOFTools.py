@@ -33,7 +33,7 @@ def TOF12Coincidence(TOFEvent):
         TOFHit(shs.GetTOF2SlabHitArray())
 
 
-def TOF12Times(TOFSpacePoints, trigger_time=1):
+def TOF12Times(TOFSpacePoints, trigger_time=2):
     """
     Caclulate times between the TOF1 trigger and TOF2.
 
@@ -66,6 +66,22 @@ def TOF12CoincidenceTime(TOFEvent, low_ns=20, high_ns=50):
             return True
 
     return False
+
+
+def TOF1SingleHit(TOFEvent, cleartime_ns=600):
+    """
+    Check for a two spacepoint event in TOF1. By default we
+    veto to 600ns, as this would place tracker hits well outside
+    the alive window. The only trigger observed will be TOF1 with t<5ns.
+    """
+    n_within_window = 0
+    for tof1_sp in TOFEvent.GetTOFEventSpacePoint().GetTOF1SpacePointArray():
+        if abs(tof1_sp.GetTime()) < cleartime_ns:
+            n_within_window += 1
+    if n_within_window > 1:
+        print "!MTOF1 ",
+        return False
+    return True
 
 
 def TimeInSpill(Spill, event_number):

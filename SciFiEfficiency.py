@@ -7,21 +7,25 @@ Quick script for finding the efficiency of the detector.
 import os
 import ROOT
 import libMausCpp  # pylint: disable = W0611
-from TOFTools import TOF12CoincidenceTime
+from TOFTools import TOF12CoincidenceTime, TOF1SingleHit
 from SciFiTools import UnsaturatedCluster
 from ROOTTools import TemplateFitter, IntegrateExpErr
 import math
 
 # Parameters
 inpath = "/home/ed/MICE/testdata/"
-#infiles = ["%05d_recon.root" % i for i in range(7515, 7547)]
-infiles = ["7367/7367_recon.root", "7369/7369_recon.root",
-           "7370/7370_recon.root", "7372/7372_recon.root",
-           "7373/7373_recon.root", "7375/7375_recon.root",
-           "7376/7376_recon.root", "7377/7377_recon.root"]
-max_spills = 0 # Will run ofver all data
 
-outrootfile = "output/7367_efficiency.root"
+infiles = ["%05d_recon.root" % i for i in range(7515, 7547)]
+#infiles = ["7367/7367_recon.root", "7369/7369_recon.root",
+#           "7370/7370_recon.root", "7372/7372_recon.root",
+#           "7373/7373_recon.root", "7375/7375_recon.root",
+#           "7376/7376_recon.root", "7377/7377_recon.root"]
+#
+#infiles = ["07409_recon.root"]
+
+max_spills = 0  # 0 Will run over all data
+
+outrootfile = "output/07515_efficiency.root"
 
 ###############################################################################
 # Main Script
@@ -70,7 +74,8 @@ for i in range(chain.GetEntries()):
     for j, recon_event in enumerate(spill.GetReconEvents()):
         print j, ":",
 
-        if TOF12CoincidenceTime(recon_event.GetTOFEvent()):
+        if TOF12CoincidenceTime(recon_event.GetTOFEvent()) and\
+                TOF1SingleHit(recon_event.GetTOFEvent()):
             print " TOF12",
             counts["TOF12_Coinc"] += 1
 
@@ -78,12 +83,13 @@ for i in range(chain.GetEntries()):
             tripletfound = [0] * 10
             for sp in recon_event.GetSciFiEvent().spacepoints():
                 if len(sp.get_channels()) == 3:
-                    basename = "Trk_%i_%i_" % (sp.get_tracker(), sp.get_station())
-                    tripletfound[sp.get_tracker()*5+sp.get_station()-1] = 1
-                    counts[basename + "triplet"] += 1
-                    for cluster in sp.get_channels():
-                        th1ds[basename + "triplet"].Fill\
-                            (UnsaturatedCluster(cluster))
+                    if tripletfound[sp.get_tracker()*5+sp.get_station()-1] == 0:
+                        basename = "Trk_%i_%i_" % (sp.get_tracker(), sp.get_station())
+                        tripletfound[sp.get_tracker()*5+sp.get_station()-1] = 1
+                        counts[basename + "triplet"] += 1
+                        for cluster in sp.get_channels():
+                            th1ds[basename + "triplet"].Fill\
+                                (UnsaturatedCluster(cluster))
             # Identify stations without triplets and store duplet
             # info
             for sp in recon_event.GetSciFiEvent().spacepoints():
@@ -137,9 +143,10 @@ for tracker in [0, 1]:
         print "Duplets from Noise %f, Error: %f" % (n_noise, n_noise_err)
 
         # Now subtract the estimated noise events:
-        n_duplets = counts[basename + "duplet"] - n_noise
+        # Note that the histogram gets filled twice per duplet.
+        n_duplets = counts[basename + "duplet"] - n_noise/2
         n_duplets = 0.0 if n_duplets < 0 else n_duplets
-        n_duplets_err = math.sqrt(n_duplets) + n_noise_err
+        n_duplets_err = math.sqrt(n_duplets) + n_noise_err/2
 
         eff[basename + "duplet"] = float(n_duplets)/counts["TOF12_Coinc"]
         eff[basename + "duplet_err"] = n_duplets_err/counts["TOF12_Coinc"]
@@ -153,10 +160,20 @@ for tracker in [0, 1]:
         print "Combined Efficiency: %f, Error: %f" % \
             (eff[basename], eff[basename+"err"])
 
+
+print ""
+print ""
+print "Tracker Station Efficiency Error"
+for tracker in [0, 1]:
+    for station in range(1, 6):
+        basename = "Trk_%i_%i_" % (tracker, station)
+        print " %i %i %f %f" % (tracker, station, eff[basename], eff[basename+"err"])
+
 ###############################################################################
 # Finally make plots:
 ###############################################################################
 th1ds["eff"] = ROOT.TH1D("eff", "Efficiency; Station[-ve=upstream]; Efficiency", 11, -5.5, 5.5)
+th1ds["triplet_eff"] = ROOT.TH1D("eff", "Efficiency; Station[-ve=upstream]; Efficiency", 11, -5.5, 5.5)
 for tracker in [0, 1]:
     for station in range(1, 6):
         basename = "Trk_%i_%i_" % (tracker, station)
@@ -164,8 +181,13 @@ for tracker in [0, 1]:
         bin = th1ds["eff"].FindBin(s)
         th1ds["eff"].SetBinContent(bin,eff[basename])
         th1ds["eff"].SetBinError(bin,eff[basename+"err"])
+        th1ds["triplet_eff"].SetBinContent(bin, eff[basename + "triplet"])
+        th1ds["triplet_eff"].SetBinError(bin, eff[basename + "triplet_err"])
 
+th1ds["eff"].SetLineColor(ROOT.kBlack)
 th1ds["eff"].Draw()
+th1ds["triplet_eff"].SetLineColor(ROOT.kBlue)
+th1ds["triplet_eff"].Draw("same")
 
 # Save all histograms:
 tf = ROOT.TFile(outrootfile, "RECREATE")
