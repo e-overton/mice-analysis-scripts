@@ -13,3 +13,6 @@ Analysis Scripts
 ====================
 SciFiEfficiency: A script to understand the efficiency of the detector,
 to use edit the parameters at the top of the file. 
+
+ScifiDeadEst: A script to estimate the number of dead channels in the
+detector using using particle data.

@@ -69,16 +69,16 @@ class FrontEndLookup:
                 print "plane mismatch"
                 good = False
 
-            if channel != c["trchan"]:
+            if channel != c["trchannel"]:
                 print "channel mismatch"
                 good = False
         except:
-            raise LookupException("Exception in lookup")
+            raise LookupError("Exception in lookup")
             good = False
 
         if not good:
             print "Plane mismatch "
-            raise LookupException("Tracker station plane do not match")
+            raise LookupError("Tracker station plane do not match")
 
         return c
 
@@ -133,7 +133,7 @@ class FrontEndLookup:
                 M[channelUID]["tracker"] = int(words[3])
                 M[channelUID]["station"] = int(words[4])
                 M[channelUID]["plane"] = int(words[5])
-                M[channelUID]["trchan"] = int(words[6])
+                M[channelUID]["trchannel"] = int(words[6])
 
         return M
 
@@ -188,7 +188,7 @@ class FrontEndLookup:
                 if c["bad"]:
                     planeid = self._getPlaneRef(c["tracker"], c["station"],
                                                 c["plane"])
-                    badplanelookup[planeid].append(c["trchan"])
+                    badplanelookup[planeid].append(c["trchannel"])
 
             except (KeyError, TypeError):
                 continue
@@ -222,7 +222,7 @@ class FrontEndLookup:
 
 
                 lookup[self._get1dref(c["tracker"], c["station"], c["plane"],
-                                      c["trchan"])] = c
+                                      c["trchannel"])] = c
 
         return lookup
 
