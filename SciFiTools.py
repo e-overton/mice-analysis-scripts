@@ -4,6 +4,8 @@ Some tools for processing spacepoints.. (and now clusters)
 """
 
 import ROOT
+from array import array
+from math import sqrt, pow
 
 
 def MissingFromDuplet(sp):
@@ -75,16 +77,23 @@ def FindDeadChansHist(hist):
             fit_high = ch_MAX
 
         # Now perform a fit:
-        hist.Fit(fitfunc, "", "", fit_low, fit_high)
-
+        fitresults = hist.Fit(fitfunc, "SNQ", "", fit_low, fit_high)
         est_val = fitfunc.Eval(ch)
         if est_val < 0:
-            est_val = 0.0
+                est_val = 0.0
+        # get error:
+        conf_int = array('d',[0])
+        fitresults.GetConfidenceIntervals(1, 1, 1, array('d',[ch]),
+                                          conf_int, 0.683, False)
+        est_val_err = conf_int[0]
+
         meas_val = hist.GetBinContent(hist.FindBin(ch))
 
-        if meas_val < 0.2*est_val:
+        # Tweaked to resuce false positives:
+        if meas_val < 0.2*(est_val-3*est_val_err) and est_val > 10:
             deadchs.append({"channel": ch,
-                            "probability": est_val/hist.GetEntries()})
+                            "probability": est_val/hist.GetEntries(),
+                            "prob_error": est_val_err/hist.GetEntries()})
 
     return deadchs
 
@@ -96,11 +105,16 @@ def StationDeadProbability(deadchs):
     """
 
     probsum = 0.0
+    probsum_err = 0.0
 
     # Find probability of all possible hit combinations:
     for d in deadchs:
         for dd in deadchs:
             if d["plane"] != dd["plane"]:
-                probsum += d["probability"]*dd["probability"]
+                val = d["probability"]*dd["probability"]
+                val_error = val*sqrt(pow(d["prob_error"]/d["probability"], 2) +
+                                     pow(dd["prob_error"]/dd["probability"], 2) )
+                probsum += val
+                probsum_err += val_error
 
-    return probsum
+    return probsum, probsum_err

@@ -5,6 +5,15 @@ Simple class to facilitate
 """
 import json
 
+try:
+    from cdb import Calibration, Cabling
+except:
+    print "CDB interface unavailable"
+    CDB_AVAIL = False
+else:
+    print "CDB interface available"
+    CDB_AVAIL = True
+
 # Definitions:
 N_Channel = 216
 N_Station = 5
@@ -25,14 +34,38 @@ class FrontEndLookup:
     point.
     """
 
-    def __init__(self, mapping_filepath, calibration_filepath,
-                 badchannels_filepath=None):
+    def __init__(self, mapping_filepath=None, calibration_filepath=None,
+                 badchannels_filepath=None, runid=None):
         """
         Constructor requires the path of the mapping and
         calibration to initilise the object.
         """
-        self.mapping = self.LoadMapping(mapping_filepath)
-        self.calibration = self.LoadCalibration(calibration_filepath)
+        # Mapping processing (file or cdb):
+        if mapping_filepath is not None:
+            with open(mapping_filepath, "r") as f:
+                self.mapping = self.ParseMapping(f)
+        elif runid is not None and CDB_AVAIL:
+            # Perform CDB operations to retrive mapping..
+            cdb_mapping = Cabling().get_cabling_for_run('Trackers', runid)
+            self.mapping = self.ParseMapping(cdb_mapping.split('\n'))
+        else:
+            raise ValueError("Unable to load mapping, no methods available")
+
+        # Mapping processing (file or cdb):
+        if calibration_filepath is not None:
+            with open(calibration_filepath, "r") as f:
+                self.calibration = self.ParseCalibration(f.read())
+        elif runid is not None and CDB_AVAIL:
+            # Perform CDB operations to retrive mapping..
+            cdb_calib = Calibration().get_calibration_for_run('Trackers', 
+                                                              runid, 'trackers')
+            print cdb_calib
+            self.calibration = self.ParseCalibration(cdb_calib)
+        else:
+            raise ValueError("Unable to load calibration, no methods available")
+
+        #self.mapping = self.LoadMapping(mapping_filepath)
+        #self.calibration = self.LoadCalibration(calibration_filepath)
 
         if badchannels_filepath is not None:
             self.badfechannels = self.LoadBadChannelUIDs(badchannels_filepath)
@@ -109,6 +142,7 @@ class FrontEndLookup:
 
     def LoadMapping(self, fname):
         """
+        Not used.
         Load a channel map into a lookup which can be used to
         convert from the electronics numbering to the internal
         station numbering.
@@ -118,22 +152,33 @@ class FrontEndLookup:
 
         # Load Map:
         with open(fname, "r") as f:
-            for line in f:
-                # Load and split line...
-                words = line.split()
-                board = int(words[0])
-                bank = int(words[1])
-                elchannel = int(words[2])
-                channelUID = board*512 + bank*128 + elchannel
-                # Output Map
-                M[channelUID]["channelUID"] = channelUID
-                M[channelUID]["board"] = board
-                M[channelUID]["bank"] = bank
-                M[channelUID]["elchannel"] = elchannel
-                M[channelUID]["tracker"] = int(words[3])
-                M[channelUID]["station"] = int(words[4])
-                M[channelUID]["plane"] = int(words[5])
-                M[channelUID]["trchannel"] = int(words[6])
+            pass
+
+    def ParseMapping(self, mapping_str):
+        """
+        Function to parse the mapping into a lookup which can be
+        used to convert from the electronics numbering to the 
+        internal station numbering.
+        """
+        M = [{} for i in range(N_ChanUIDS)]
+        for line in mapping_str:
+            # Load and split line...
+            words = line.split()
+            if len(words) < 3:
+                continue
+            board = int(words[0])
+            bank = int(words[1])
+            elchannel = int(words[2])
+            channelUID = board*512 + bank*128 + elchannel
+            # Output Map
+            M[channelUID]["channelUID"] = channelUID
+            M[channelUID]["board"] = board
+            M[channelUID]["bank"] = bank
+            M[channelUID]["elchannel"] = elchannel
+            M[channelUID]["tracker"] = int(words[3])
+            M[channelUID]["station"] = int(words[4])
+            M[channelUID]["plane"] = int(words[5])
+            M[channelUID]["trchannel"] = int(words[6])
 
         return M
 
@@ -147,13 +192,20 @@ class FrontEndLookup:
 
         # Load file
         with open(fname, "r") as f:
-            calib = json.load(f)
+            pass
 
-            # Expand / arrange Calibration:
-            for c in calib:
-                channelUID = 128*c["bank"] + c["channel"]
-                c["ChannelID"] = channelUID
-                output[channelUID] = c
+    def ParseCalibration(self, calibration_str):
+        """
+        Parse a string into json, and then generate the
+        calibration lookup for use..
+        """
+        output = [{}] * N_ChanUIDS  # for i in range(N_ChanUIDS)]
+        calib = json.loads(calibration_str)
+        # Expand / arrange Calibration:
+        for c in calib:
+            channelUID = 128*c["bank"] + c["channel"]
+            c["ChannelID"] = channelUID
+            output[channelUID] = c
 
         return output
 
@@ -213,7 +265,6 @@ class FrontEndLookup:
                 for key in ["tdc_gain", "adc_gain", "tdc_pedestal",
                             "adc_pedestal"]:
                     c[key] = calibration[channelUID][key]
-
                 # Apply bad channnels
                 if channelUID in baduids:
                     c["bad"] = True
