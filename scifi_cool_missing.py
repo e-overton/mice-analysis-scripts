@@ -13,7 +13,8 @@ from PlotSciFiEvent import PlotSciFiEvent
 from ROOTTools import CombinedNorm
 import math
 
-max_spills = 0  # 0 Will run over all data
+max_spills = 2000  # 0 Will run over all data
+plot_bad_events = True
 
 #for MC
 #inpath = "/home/ed/MICE/data/efficiency_investigation/mc"
@@ -140,16 +141,16 @@ for i in range(chain.GetEntries()):
 
             #if (us_unused == 5 and ds_unused == 5) and (not us_track and not ds_track)\
             #    and us_unusedtrip == 5  and ds_unusedtrip == 5:
-            if (ds_unused == 5 and ds_unusedtrip == 5 and not ds_track and ds_station_sum==15):
-            
+            if (ds_unused == 5 and not ds_track):
+
                 print " AWE",
                 aswesome_events.append(spill.GetSpillNumber()*1000+j)
-                #event = PlotSciFiEvent()
-                #event.fill(recon_event.GetSciFiEvent())
-                #event.draw()
-                #raw_input ("press enter to continue")
-
-
+                if plot_bad_events == True:
+                    event = PlotSciFiEvent()
+                    event.fill(recon_event.GetSciFiEvent())
+                    event.draw()
+                    event.c.SaveAs("ds_missing/%04i_%i.png"% (spill.GetSpillNumber(), j))
+                    #raw_input ("press enter to continue")
 
             if us_track:
                 TH1D_unusedsptk_US.Fill(us_unused)
@@ -222,10 +223,6 @@ print trip_duplet_ds
 with open('ds_bad.txt', 'w') as f:
     for a in aswesome_events:
         f.write('%i\n'%a)
-        #print(a, file=f)
-
-
-#print aswesome_events
 
 raw_input ("press enter to continue")
 

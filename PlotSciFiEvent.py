@@ -33,6 +33,13 @@ class PlotSciFiEvent:
                         # tg.SetName("%s_%s"(self.name, obj_name))
                         setattr(self, obj_name, tg)
 
+        self.titles = {}
+        self.titles["xy"] = ";x(mm);y(mm)"
+        self.titles["zx"] = ";z(mm);x(mm)"
+        self.titles["zy"] = ";z(mm);y(mm)"
+        #self.titles["zr"] = ";z(mm);radius(mm)"
+        #self.titles["zphi"] = ";z(mm);radius(mm)"
+
 
 
         self.colors = {"str": ROOT.kBlue, "hel": ROOT.kGreen, "nat": ROOT.kRed}
@@ -111,7 +118,7 @@ class PlotSciFiEvent:
 
         # Top Left:
         for i, tracker in enumerate(["us", "ds"]):
-            for j, prj in enumerate(["zr", "zphi", "xy"]):
+            for j, prj in enumerate(["xy", "zx", "zy"]):
 
                 self.c.cd(i*3+j+1)
 
@@ -129,9 +136,10 @@ class PlotSciFiEvent:
                                 tg.SetMarkerStyle(24)
 
                 mg.Draw("a")
+                mg.SetTitle(tracker+self.titles[prj])
                 setattr(self, "mg_%s_%s" % (tracker, prj), mg)
                 try:
-                    if j == 3:
+                    if j == 0:
                         mg.GetXaxis().SetRangeUser(-150, 150)
                     mg.GetYaxis().SetRangeUser(-150, 150)
                 except:
