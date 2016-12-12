@@ -55,13 +55,48 @@ def TOF12Times(TOFSpacePoints, trigger_time=2):
     return times
 
 
+def TOF01Times(TOFSpacePoints, trigger_time=2):
+    """
+    Caclulate times between the TOF1 trigger and TOF0.
+
+    The "trigger" spacepoint is determined by being
+    within trigger_time from t=0, default is 1ns.
+
+    returns an array of possible times for particles
+    between a trigger in TOF1 and TOF2.
+    """
+
+    times = []
+
+    for tof1_sp in TOFSpacePoints.GetTOF1SpacePointArray():
+        tof1_sp_time = tof1_sp.GetTime()
+        if abs(tof1_sp_time) < trigger_time:
+            for tof0_sp in TOFSpacePoints.GetTOF0SpacePointArray():
+                times.append(tof1_sp_time - tof0_sp.GetTime())
+
+    return times
+
+
+def TOF01CoincidenceTime(TOFEvent, low_ns=20, high_ns=50):
+    """
+    Check the TOF01 time for a muon like event.
+    """
+    for time in TOF01Times(TOFEvent.GetTOFEventSpacePoint(), 500):
+        #print time
+        if (time < high_ns) and (time > low_ns):
+            return True
+
+    return False
+
+
 def TOF12CoincidenceTime(TOFEvent, low_ns=20, high_ns=50):
     """
     Return the coincidence of TOF1 and TOF2, using
     the TOFHit function.
     """
 
-    for time in TOF12Times(TOFEvent.GetTOFEventSpacePoint()):
+    for time in TOF12Times(TOFEvent.GetTOFEventSpacePoint(), 500):
+        #print time
         if (time < high_ns) and (time > low_ns):
             return True
 
@@ -78,8 +113,8 @@ def TOF1SingleHit(TOFEvent, cleartime_ns=600):
     for tof1_sp in TOFEvent.GetTOFEventSpacePoint().GetTOF1SpacePointArray():
         if abs(tof1_sp.GetTime()) < cleartime_ns:
             n_within_window += 1
-    if n_within_window > 1:
-        print "!MTOF1 ",
+    if n_within_window > 1 or n_within_window == 0:
+        print "!MTOF1=%i "%n_within_window,
         return False
     return True
 

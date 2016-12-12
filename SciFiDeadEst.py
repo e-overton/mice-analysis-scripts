@@ -44,10 +44,12 @@ maus_scifi_mapping = "%s/files/cabling/scifi_mapping_2015-09-11.txt"\
 
 # Parameters
 inpath = "/home/ed/MICE/testdata/"
-infiles = ["%05d_recon.root" % i for i in range(7515, 7547)]
+#infiles = ["%05d_recon.root" % i for i in range(7515, 7547)]
 # infiles = ["07417_recon.root"]
-outrootfile = "dead_07515.root"
-outcsvfile = "dead_07515.csv"
+
+infiles = ["reprocessed/07432_recon.root"]
+outrootfile = "dead_07432.root"
+outcsvfile = "dead_07432.csv"
 max_spills = 0  # 0 Will run over all data
 lookup = FrontEndLookup(maus_scifi_mapping, maus_scifi_calibration)
 

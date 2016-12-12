@@ -53,3 +53,21 @@ def IntegrateExpErr(a, a_error, start, stop):
     error = a_error*dida
 
     return integral, error
+
+def CombinedNorm(hists):
+    """
+    Normalise an array of histograms to 1 over all
+    """
+    
+    entries = 0
+    for h in hists:
+        entries += h.GetEntries()
+    
+    try:
+        rescale = 1/entries
+    except:
+        rescale = 1
+    
+    for h in hists:
+        h.Scale(rescale)
+    
